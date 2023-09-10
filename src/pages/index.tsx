@@ -9,6 +9,8 @@ import {
   useState,
   Fragment,
   ChangeEvent,
+  MouseEvent,
+  FormEvent,
 } from 'react';
 import { styled } from 'styled-components';
 import React from 'react';
@@ -24,7 +26,11 @@ const models = [
   { name: 'large-v2' },
 ];
 
-const vads = [
+interface Vad {
+  name: string;
+}
+
+const vads: Vad[] = [
   { name: 'none' },
   { name: 'silero-vad' },
   { name: 'silero-vad-skip-gaps' },
@@ -140,6 +146,11 @@ const languages: Language[] = [
 ];
 
 export default function Home(this: any) {
+  const [selectedModel, setSelectedModel] = useState<number | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState<Language>(
+    languages[0]
+  );
+  const [selectedVad, setSelectedVad] = useState<Vad>(vads[1]);
   const [filteredLanguages, setFilteredLanguages] = useState(languages);
   const [filteredVads, setFilteredVads] = useState(vads);
   const [isListVisible, setListVisibility] = useState(false);
@@ -148,6 +159,13 @@ export default function Home(this: any) {
   const fileInput = useRef<HTMLInputElement>(null);
 
   const [checked, setChecked] = useState(false);
+
+  const onModelClickHandler = (e: MouseEvent<HTMLDivElement>) => {
+    const {
+      dataset: { key },
+    } = e.currentTarget;
+    setSelectedModel(Number(key) ?? null);
+  };
 
   const checkClick = (e: { target: { checked: boolean } }) => {
     console.log(e.target.checked);
@@ -169,7 +187,7 @@ export default function Home(this: any) {
   };
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = () => {
       if (inputRef.current) {
         setListVisibility(false);
       }
@@ -209,28 +227,79 @@ export default function Home(this: any) {
     audio.controls = true;
     document.body.appendChild(audio);
   };
+
+  const onLaunguageClickHandler = (e: MouseEvent<HTMLLIElement>) => {
+    const {
+      dataset: { code },
+    } = e.currentTarget;
+
+    console.log(code);
+    if (code) {
+      (document.getElementById('languageInput') as HTMLInputElement).value =
+        languages.find((l) => l.code === code)?.name ?? '';
+      setSelectedLanguage(
+        languages.find((l) => l.code === code) ?? languages[0]
+      );
+      onSelectionFocusHandler();
+    }
+  };
+
+  const onVadClickHandler = (e: MouseEvent<HTMLLIElement>) => {
+    const {
+      dataset: { name },
+    } = e.currentTarget;
+
+    console.log(name);
+    if (name) {
+      (document.getElementById('vadInput') as HTMLInputElement).value =
+        vads.find((l) => l.name === name)?.name ?? '';
+      setSelectedVad(vads.find((l) => l.name === name) ?? vads[0]);
+      onSelectionFocusHandlerV();
+    }
+  };
+
+  const handleClearClick = (e: any) => {
+    setSelectedModel(null);
+  };
+  const handleSubmitClick = (e: any) => {};
+
+  const onSubmitHandler = (e: FormEvent) => {
+    e.preventDefault();
+
+    console.log(e);
+  };
+
   return (
     <>
-      <Description>
-        <Text>Whisper is a general-purpose speech recognition model.</Text>
-        <Text>
-          It is trained on a large dataset of diverse audio and is also a
-          multi-task model that can perform multilingual speech recognition as
-          well as speech translation and language identification.
-        </Text>
-        <Text>
-          For longer audio files (&#62;10 minutes) not in English, it is
-          recommended that you select Silero VAD (Voice Activity Detector) in
-          the VAD option.
-        </Text>
-      </Description>
       <Block1>
-        <Block2>
+        <Block2 onSubmit={onSubmitHandler}>
+          <Description>
+            <Text>Whisper is a general-purpose speech recognition model.</Text>
+            <Text>
+              It is trained on a large dataset of diverse audio and is also a
+              multi-task model that can perform multilingual speech recognition
+              as well as speech translation and language identification.
+            </Text>
+            <Text>
+              For longer audio files (&#62;10 minutes) not in English, it is
+              recommended that you select Silero VAD (Voice Activity Detector)
+              in the VAD option.
+            </Text>
+          </Description>
+          <Line />
           <Container>
             <Text>Model</Text>
             <ModelSelector>
-              {models.map((model) => {
-                return <ModelButton>{model.name}</ModelButton>;
+              {models.map((model, i) => {
+                return (
+                  <ModelButton
+                    className={`${selectedModel === i ? 'active' : ''}`}
+                    onClick={onModelClickHandler}
+                    data-key={i}
+                  >
+                    {model.name}
+                  </ModelButton>
+                );
               })}
             </ModelSelector>
           </Container>
@@ -238,14 +307,22 @@ export default function Home(this: any) {
             <Text>Language</Text>
             <SelectionWrapper>
               <SelectionInput
+                id='languageInput'
                 onFocus={onSelectionFocusHandler}
-                onBlur={onSelectionFocusHandler}
                 onChange={onSelectionSearchHandler}
+                placeholder='select the language...'
+                defaultValue={selectedLanguage.name}
               />
               {isListVisible && (
                 <Listbox>
-                  {filteredLanguages.map((language) => (
-                    <li key={language.code}>{language.name}</li>
+                  {filteredLanguages.map((language, i) => (
+                    <li
+                      key={i}
+                      data-code={language.code}
+                      onClick={onLaunguageClickHandler}
+                    >
+                      {language.name}
+                    </li>
                   ))}
                 </Listbox>
               )}
@@ -297,24 +374,71 @@ export default function Home(this: any) {
             </Block3>
           </Container>
           <Container>
-            <Text>VAD - Merge Window(s)</Text>
+            <Text>VAD</Text>
             <SelectionWrapper>
               <SelectionInput
+                id='vadInput'
                 onFocus={onSelectionFocusHandlerV}
-                onBlur={onSelectionFocusHandlerV}
                 onChange={onSelectionSearchHandlerV}
+                placeholder='select the Voice Activy Detector'
+                defaultValue={selectedVad.name}
               />
               {isListVisibleV && (
                 <Listbox>
-                  {filteredVads.map((vad) => (
-                    <li>{vad.name}</li>
+                  {filteredVads.map((vad, i) => (
+                    <li
+                      key={i}
+                      data-name={vad.name}
+                      onClick={onVadClickHandler}
+                    >
+                      {vad.name}
+                    </li>
                   ))}
                 </Listbox>
               )}
             </SelectionWrapper>
           </Container>
-        </Block2>
-        <Block2>
+          <Container>
+            <Text>VAD - Merge Window(s)</Text>
+            <UrlInput
+              type='number'
+              defaultValue={5}
+              required
+              placeholder='please enter only number'
+            />
+          </Container>
+          <Container>
+            <Text>VAD - Max Merge Size(s)</Text>
+            <UrlInput
+              type='number'
+              defaultValue={30}
+              required
+              placeholder='please enter only number'
+            />
+          </Container>
+          <Container>
+            <CheckboxWrapper>
+              <Label>
+                Word Timestamps
+                <input type='checkbox' name='timestamp' />
+              </Label>
+              <Label>
+                Highlight Words
+                <input type='checkbox' name='highlight' />
+              </Label>
+            </CheckboxWrapper>
+          </Container>
+          <Container>
+            <ButtonWrapper>
+              <Submit onClick={handleClearClick} type='reset'>
+                Clear
+              </Submit>
+              <Submit onClick={handleSubmitClick} type='submit'>
+                Submit
+              </Submit>
+            </ButtonWrapper>
+          </Container>
+          <Line />
           <Container>
             <Text>Download</Text>
           </Container>
@@ -331,32 +455,36 @@ export default function Home(this: any) {
 }
 
 const Description = styled.div`
-  padding: 10px 12px;
   gap: 5px;
   display: flex;
   flex-direction: column;
+  padding: 10px;
 `;
 
 const Block1 = styled.div`
+  margin: auto;
+  max-width: 500px;
   display: flex;
+  flex-direction: column;
+  padding: 15px 12px;
   gap: 15px;
-  margin: 0px 10px;
 `;
 
-const Block2 = styled.div`
+const Block2 = styled.form`
   display: flex;
   flex-direction: column;
   gap: 5px;
-
-  padding: 5px;
+  padding: 20px 14px;
   border-radius: 7px;
-  background-color: #e5e5e566;
+  border: 1px solid white;
+  box-shadow: 0 0 16px 0px #00000017;
 `;
 
 const Text = styled.div`
   font-size: 12px;
+  color: #3f51b5;
   font-weight: 600;
-  color: gray;
+  padding: 3px 0px;
 `;
 
 const Container = styled.div`
@@ -365,37 +493,27 @@ const Container = styled.div`
   flex-direction: column;
   justify-content: center;
   gap: 5px;
-  border-radius: 4px;
-  border-color: #8080802e;
-  border-width: 1px;
-  border-style: solid;
-  padding: 12px;
+  padding: 10px;
 `;
 
 const ModelSelector = styled.div`
   display: flex;
+  gap: 10px;
 `;
 
 const ModelButton = styled.div`
-  font-size: 10px;
-  font-weight: 900;
-  padding: 10px;
-  border-color: #80808076;
-  border-width: 1px;
-  border-style: solid;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 13px;
+  border: 1px solid #cfcfcf;
+  border-radius: 50px;
+  transition: background-color 350ms ease;
 
-  &:first-child {
-    border-top-left-radius: 4px;
-    border-bottom-left-radius: 4px;
-  }
-
-  &:last-child {
-    border-top-right-radius: 4px;
-    border-bottom-right-radius: 4px;
-  }
-
-  &:not(:last-child) {
-    border-right: none;
+  &.active {
+    background-color: #b5b5ec;
+    color: #ffffff;
+    background-color: #4050b5;
+    border: none;
   }
 `;
 
@@ -404,7 +522,7 @@ const Listbox = styled.ul`
   list-style-type: none;
   font-size: 13px;
   color: gray;
-  font-weight: 300;
+  font-weight: 400;
   padding: 5px;
   max-height: 200px;
   overflow-y: auto;
@@ -428,7 +546,7 @@ const Listbox = styled.ul`
 `;
 
 const Button = styled.div`
-  border: 1px solid #ccc;
+  border: 1px solid #cfcfcf;
   border-radius: 4px;
   display: flex;
   justify-content: center;
@@ -441,7 +559,7 @@ const Button = styled.div`
 
 const SelectionInput = styled.input`
   width: -webkit-fill-available;
-  border: 1px solid #f0f0f0;
+  border: 1px solid #cfcfcf;
   border-radius: 4px;
   font-size: 13px;
   color: gray;
@@ -486,7 +604,7 @@ const ToggleCircle = styled.div`
 `;
 
 const UrlInput = styled.input`
-  border: 1px solid #f0f0f0;
+  border: 1px solid #cfcfcf;
   border-radius: 4px;
   font-size: 13px;
   color: gray;
@@ -511,7 +629,7 @@ const ToggleTextWrapper = styled.div`
   justify-content: space-between;
 
   & > div {
-    color: #f0f0f0;
+    color: #cfcfcf;
     transition: color 350ms ease;
   }
 
@@ -520,9 +638,50 @@ const ToggleTextWrapper = styled.div`
   }
 
   label:has(> input:checked) ~ & > div:first-child {
-    color: #f0f0f0;
+    color: #cfcfcf;
   }
   label:has(> input:checked) ~ & > div:last-child {
     color: gray;
   }
+`;
+
+const Line = styled.div`
+  border: 1px solid #8d98b581;
+  width: calc(100% - 16px);
+  height: 0px;
+  margin: 20px auto;
+  border-style: dashed;
+`;
+
+const Submit = styled.button`
+  background-color: #6868ac;
+  font-weight: 400;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 15px;
+  padding: 10px;
+  cursor: pointer;
+`;
+
+const ButtonWrapper = styled.div`
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  justify-content: space-around;
+`;
+
+const Label = styled.div`
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  color: #3f51b5;
+  font-weight: 600;
+  padding: 3px 0px;
+  gap: 2px;
+`;
+
+const CheckboxWrapper = styled.div`
+  display: flex;
+  gap: 20px;
 `;
