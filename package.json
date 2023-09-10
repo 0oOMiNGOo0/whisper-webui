@@ -9,8 +9,6 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@headlessui/react": "^1.7.17",
-    "@heroicons/react": "^2.0.18",
     "@types/node": "20.5.9",
     "@types/react": "18.2.21",
     "@types/react-dom": "18.2.7",
@@ -18,13 +16,18 @@
     "eslint": "8.48.0",
     "eslint-config-next": "13.4.19",
     "next": "13.4.19",
-    "primereact": "^9.6.2",
     "react": "18.2.0",
+    "react-audio-voice-recorder": "^2.1.2",
     "react-dom": "18.2.0",
     "styled-components": "^6.0.7",
     "typescript": "5.2.2"
   },
   "devDependencies": {
     "babel-plugin-styled-components": "^2.1.4"
-  }
+  },
+  "description": "yarn",
+  "main": "index.js",
+  "repository": "https://github.com/0oOMiNGOo0/whisper-webui.git",
+  "author": "0oOMiNGOo0 <“sewon3397@yonsei.ac.kr”>",
+  "license": "MIT"
 }

@@ -8,8 +8,12 @@ import {
   useRef,
   useState,
   Fragment,
+  ChangeEvent,
 } from 'react';
 import { styled } from 'styled-components';
+import React from 'react';
+
+import { AudioRecorder } from 'react-audio-voice-recorder';
 
 const models = [
   { name: 'tiny' },
@@ -18,6 +22,14 @@ const models = [
   { name: 'medium' },
   { name: 'large' },
   { name: 'large-v2' },
+];
+
+const vads = [
+  { name: 'none' },
+  { name: 'silero-vad' },
+  { name: 'silero-vad-skip-gaps' },
+  { name: 'silero-vad-expand-into-gaps' },
+  { name: 'periodic-vad' },
 ];
 
 interface Language {
@@ -128,14 +140,28 @@ const languages: Language[] = [
 ];
 
 export default function Home(this: any) {
-  const [searchTerm, setSearchTerm] = useState('');
   const [filteredLanguages, setFilteredLanguages] = useState(languages);
+  const [filteredVads, setFilteredVads] = useState(vads);
   const [isListVisible, setListVisibility] = useState(false);
+  const [isListVisibleV, setListVisibilityV] = useState(false);
   const inputRef = useRef(null);
-  const fileInput = useRef(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  const [checked, setChecked] = useState(false);
+
+  const checkClick = (e: { target: { checked: boolean } }) => {
+    console.log(e.target.checked);
+    if (e.target.checked === false) {
+      setChecked(false);
+    } else if (e.target.checked === true) {
+      setChecked(true);
+    }
+  };
 
   const handleButtonClick = (e: any) => {
-    fileInput.current.click();
+    if (fileInput.current != null) {
+      fileInput.current.click();
+    }
   };
 
   const handleChange = (e: any) => {
@@ -156,14 +182,32 @@ export default function Home(this: any) {
     };
   }, []);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value: string = e.target.value.toLowerCase();
-    setSearchTerm(value);
-    const filtered: Language[] = languages.filter((language: Language) =>
-      language.name.toLowerCase().includes(value)
+  const onSelectionFocusHandler = () => {
+    setListVisibility(!isListVisible);
+  };
+
+  const onSelectionSearchHandler = (e: ChangeEvent<HTMLInputElement>) => {
+    const { value } = e.currentTarget;
+    setFilteredLanguages(
+      languages.filter((languages) => languages.name.includes(value))
     );
-    setFilteredLanguages(filtered);
-    setListVisibility(value.length > 0);
+  };
+
+  const onSelectionFocusHandlerV = () => {
+    setListVisibilityV(!isListVisibleV);
+  };
+
+  const onSelectionSearchHandlerV = (e: ChangeEvent<HTMLInputElement>) => {
+    const { value } = e.currentTarget;
+    setFilteredVads(vads.filter((vad) => vad.name.includes(value)));
+  };
+
+  const addAudioElement = (blob) => {
+    const url = URL.createObjectURL(blob);
+    const audio = document.createElement('audio');
+    audio.src = url;
+    audio.controls = true;
+    document.body.appendChild(audio);
   };
   return (
     <>
@@ -192,24 +236,24 @@ export default function Home(this: any) {
           </Container>
           <Container>
             <Text>Language</Text>
-            <input
-              type='text'
-              onChange={handleInputChange}
-              value={searchTerm}
-              style={{ border: '1 solid #e5e5e566' }}
-              onFocus={() => setListVisibility(true)}
-            />
-            {isListVisible && (
-              <Listbox>
-                {filteredLanguages.map((language) => (
-                  <li key={language.code}>{language.name}</li>
-                ))}
-              </Listbox>
-            )}
+            <SelectionWrapper>
+              <SelectionInput
+                onFocus={onSelectionFocusHandler}
+                onBlur={onSelectionFocusHandler}
+                onChange={onSelectionSearchHandler}
+              />
+              {isListVisible && (
+                <Listbox>
+                  {filteredLanguages.map((language) => (
+                    <li key={language.code}>{language.name}</li>
+                  ))}
+                </Listbox>
+              )}
+            </SelectionWrapper>
           </Container>
           <Container>
             <Text>Url(Youtube, etc)</Text>
-            <input />
+            <UrlInput />
           </Container>
           <Container>
             <Text>Upload</Text>
@@ -220,6 +264,54 @@ export default function Home(this: any) {
               ref={fileInput}
               style={{ display: 'none' }}
             />
+          </Container>
+          <Container>
+            <Text>Microphone Input</Text>
+            <AudioRecorder
+              onRecordingComplete={addAudioElement}
+              audioTrackConstraints={{
+                noiseSuppression: true,
+                echoCancellation: true,
+              }}
+              downloadOnSavePress={true}
+              downloadFileExtension='webm'
+            />{' '}
+          </Container>
+          <Container>
+            <Text>Task</Text>
+            <Block3>
+              <ToggleBlock htmlFor='toggleSwitch'>
+                <input
+                  type='checkbox'
+                  onClick={(e) => checkClick}
+                  id='toggleSwitch'
+                  hidden
+                />
+                <ToggleCircle />
+              </ToggleBlock>
+
+              <ToggleTextWrapper>
+                <Text>Transcribe</Text>
+                <Text>Translate</Text>
+              </ToggleTextWrapper>
+            </Block3>
+          </Container>
+          <Container>
+            <Text>VAD - Merge Window(s)</Text>
+            <SelectionWrapper>
+              <SelectionInput
+                onFocus={onSelectionFocusHandlerV}
+                onBlur={onSelectionFocusHandlerV}
+                onChange={onSelectionSearchHandlerV}
+              />
+              {isListVisibleV && (
+                <Listbox>
+                  {filteredVads.map((vad) => (
+                    <li>{vad.name}</li>
+                  ))}
+                </Listbox>
+              )}
+            </SelectionWrapper>
           </Container>
         </Block2>
         <Block2>
@@ -252,7 +344,6 @@ const Block1 = styled.div`
 `;
 
 const Block2 = styled.div`
-  width: 350px;
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -309,6 +400,7 @@ const ModelButton = styled.div`
 `;
 
 const Listbox = styled.ul`
+  width: calc(100% - 12px);
   list-style-type: none;
   font-size: 13px;
   color: gray;
@@ -316,8 +408,23 @@ const Listbox = styled.ul`
   padding: 5px;
   max-height: 200px;
   overflow-y: auto;
-  border: 1px solid #ccc;
+  border: 1px solid #ededed;
   border-radius: 4px;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  position: absolute;
+  background: white;
+  z-index: 1;
+  top: 15px;
+
+  & > li {
+    padding: 4px;
+    cursor: pointer;
+  }
+
+  &:empty {
+    display: none;
+  }
 `;
 
 const Button = styled.div`
@@ -330,4 +437,92 @@ const Button = styled.div`
   color: gray;
   font-weight: 400;
   background-color: white;
+`;
+
+const SelectionInput = styled.input`
+  width: -webkit-fill-available;
+  border: 1px solid #f0f0f0;
+  border-radius: 4px;
+  font-size: 13px;
+  color: gray;
+  font-weight: 300;
+  padding: 6px 8px;
+  outline: none;
+  display: flex;
+  margin: 0;
+`;
+
+const SelectionWrapper = styled.div`
+  width: 100%;
+  position: relative;
+`;
+
+const ToggleBlock = styled.label`
+  width: 40px;
+  display: flex;
+  border-radius: 30px;
+  padding: 4px;
+  position: relative;
+  background-color: #d9d9d9;
+  transition: background-color 350ms ease;
+  cursor: pointer;
+
+  &:has(input:checked) {
+    background-color: #5f5f96;
+  }
+`;
+
+const ToggleCircle = styled.div`
+  width: 20px;
+  height: 20px;
+  background-color: white;
+  border-radius: 50%;
+  transition: margin-left 350ms ease;
+  margin-left: 0;
+
+  input:checked + & {
+    margin-left: 20px;
+  }
+`;
+
+const UrlInput = styled.input`
+  border: 1px solid #f0f0f0;
+  border-radius: 4px;
+  font-size: 13px;
+  color: gray;
+  font-weight: 300;
+  padding: 6px 8px;
+  outline: none;
+  display: flex;
+  margin: 0;
+`;
+
+const Block3 = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  justify-content: space-between;
+`;
+
+const ToggleTextWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  justify-content: space-between;
+
+  & > div {
+    color: #f0f0f0;
+    transition: color 350ms ease;
+  }
+
+  & > div:first-child {
+    color: gray;
+  }
+
+  label:has(> input:checked) ~ & > div:first-child {
+    color: #f0f0f0;
+  }
+  label:has(> input:checked) ~ & > div:last-child {
+    color: gray;
+  }
 `;
