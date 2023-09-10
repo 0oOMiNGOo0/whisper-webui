@@ -14,6 +14,7 @@ import {
 } from 'react';
 import { styled } from 'styled-components';
 import React from 'react';
+import Axios from 'axios';
 
 import { AudioRecorder } from 'react-audio-voice-recorder';
 
@@ -146,6 +147,7 @@ const languages: Language[] = [
 ];
 
 export default function Home(this: any) {
+  const [audioFile, setAudioFile] = useState<File>();
   const [selectedModel, setSelectedModel] = useState<number | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<Language>(
     languages[0]
@@ -207,7 +209,9 @@ export default function Home(this: any) {
   const onSelectionSearchHandler = (e: ChangeEvent<HTMLInputElement>) => {
     const { value } = e.currentTarget;
     setFilteredLanguages(
-      languages.filter((languages) => languages.name.includes(value))
+      languages.filter((languages) =>
+        languages.name.toLocaleLowerCase().includes(value.toLocaleLowerCase())
+      )
     );
   };
 
@@ -217,15 +221,15 @@ export default function Home(this: any) {
 
   const onSelectionSearchHandlerV = (e: ChangeEvent<HTMLInputElement>) => {
     const { value } = e.currentTarget;
-    setFilteredVads(vads.filter((vad) => vad.name.includes(value)));
+    setFilteredVads(
+      vads.filter((vad) =>
+        vad.name.toLocaleLowerCase().includes(value.toLocaleLowerCase())
+      )
+    );
   };
 
-  const addAudioElement = (blob) => {
-    const url = URL.createObjectURL(blob);
-    const audio = document.createElement('audio');
-    audio.src = url;
-    audio.controls = true;
-    document.body.appendChild(audio);
+  const addAudioElement = (blob: Blob) => {
+    setAudioFile(new File([blob], 'file'));
   };
 
   const onLaunguageClickHandler = (e: MouseEvent<HTMLLIElement>) => {
@@ -263,10 +267,71 @@ export default function Home(this: any) {
   };
   const handleSubmitClick = (e: any) => {};
 
-  const onSubmitHandler = (e: FormEvent) => {
+  const onSubmitHandler = async (e: FormEvent) => {
     e.preventDefault();
+    if (!selectedModel) {
+      alert('모델을 선택해주세요.');
+      return;
+    }
+    const target = e.target as unknown as HTMLInputElement[];
 
-    console.log(e);
+    const youtube = target[1].value;
+    const record = null;
+
+    const arr = [youtube, audioFile, record].filter((x) => !!x);
+
+    if (arr.length === 0) {
+      alert('옵션 하나 선택');
+      return;
+    }
+
+    if (arr.length > 1) {
+      alert('2개 이상 ㄴㄴ');
+      return;
+    }
+
+    const task = target[3].checked;
+    const mergeWindows = target[5].value;
+    const maxMergeSize = target[6].value;
+    const isTimestamps = target[7].checked;
+    const isHighlight = target[8].checked;
+
+    console.log(isHighlight);
+
+    const body = {
+      selectedLanguage: selectedLanguage.code,
+      selectedModel: models[selectedModel].name,
+      selectedVad: selectedVad.name,
+      youtube,
+      uploadFile: audioFile,
+      record,
+      task,
+      mergeWindows,
+      maxMergeSize,
+      isTimestamps,
+      isHighlight,
+    };
+
+    const formData = new FormData();
+    Object.keys(body).forEach((key) =>
+      formData.append(
+        key,
+        !!body[key] || String(body[key]) === 'false' ? body[key] : 'None'
+      )
+    );
+
+    const { data } = await Axios.post(
+      'http://1bd4-35-232-137-103.ngrok-free.app',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+
+    console.log('REQUEST BODY DATA IS', body);
+    console.log('RESPONSE DATA IS', data);
   };
 
   return (
@@ -350,8 +415,7 @@ export default function Home(this: any) {
                 noiseSuppression: true,
                 echoCancellation: true,
               }}
-              downloadOnSavePress={true}
-              downloadFileExtension='webm'
+              downloadFileExtension='mp3'
             />{' '}
           </Container>
           <Container>
