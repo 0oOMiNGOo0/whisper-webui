@@ -17,6 +17,8 @@ import {
 import { styled } from 'styled-components';
 import React from 'react';
 import Axios from 'axios';
+import Image from 'next/image';
+import { Socket, io } from 'socket.io-client';
 
 const models = [
   { name: 'tiny' },
@@ -39,7 +41,7 @@ const languages: Language[] = [
 ];
 
 export default function Home(this: any) {
-  const [audioFile, setAudioFile] = useState<File>();
+  const [audioFile, setAudioFile] = useState<File | null>(null);
   const [selectedModel, setSelectedModel] = useState<number | null>(null);
   const [selectedFromLanguage, setSelectedFromLanguage] = useState<Language>(
     languages[1]
@@ -48,6 +50,8 @@ export default function Home(this: any) {
     languages[1]
   );
   const fileInput = useRef<HTMLInputElement>(null);
+  const [progress, setProgress] = useState(null);
+  const [socket, setSocket] = useState<Socket>(null);
 
   const onModelClickHandler = (e: MouseEvent<HTMLDivElement>) => {
     const {
@@ -92,7 +96,7 @@ export default function Home(this: any) {
 
   const onSubmitHandler = async (e: FormEvent) => {
     e.preventDefault();
-    if (!selectedModel) {
+    if (!(selectedModel + 1)) {
       alert('모델을 선택해주세요.');
       return;
     }
@@ -105,6 +109,7 @@ export default function Home(this: any) {
     };
 
     const formData = new FormData();
+    formData.append('test', '12');
     Object.keys(body).forEach((key) =>
       formData.append(
         key,
@@ -112,29 +117,28 @@ export default function Home(this: any) {
       )
     );
 
-    const { data } = await Axios.post(
-      'https://dfb0-34-80-21-16.ngrok-free.app/',
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        responseType: 'blob',
-      }
-    );
+    console.log(formData);
+    socket.emit('uploaded', formData);
 
-    const href = URL.createObjectURL(data);
+    const { data } = await Axios.post('http://localhost:5050', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      responseType: 'blob',
+    });
 
-    const link = document.createElement('a');
-    link.href = href;
-    link.setAttribute('download', 'file.zip');
-    link.classList.add('download_link');
-    link.textContent = 'files.zip';
+    // const href = URL.createObjectURL(data);
 
-    document.querySelector('#download')?.appendChild(link);
+    // const link = document.createElement('a');
+    // link.href = href;
+    // link.setAttribute('download', 'file.zip');
+    // link.classList.add('download_link');
+    // link.textContent = 'files.zip';
 
-    console.log('REQUEST BODY DATA IS', body);
-    console.log('RESPONSE DATA IS', data);
+    // document.querySelector('#download')?.appendChild(link);
+
+    // console.log('REQUEST BODY DATA IS', body);
+    // console.log('RESPONSE DATA IS', data);
   };
 
   const task = useMemo(() => {
@@ -142,10 +146,55 @@ export default function Home(this: any) {
     if (selectedFromLanguage !== selectedToLanguage) return 'translate';
   }, [selectedToLanguage, selectedFromLanguage]);
 
+  useEffect(() => {
+    const socket = io('http://localhost:5050', {
+      transports: ['websocket'],
+    });
+    // log socket connection
+    socket.on('connect', () => {
+      console.log('CONNECTED');
+      setSocket(socket);
+    });
+
+    // update chat on new message dispatched
+    socket.on('message', (message: any) => {
+      setProgress(message);
+      console.log(message);
+    });
+
+    socket.on('end', () => {
+      console.log('EXIT');
+      setTimeout(() => {
+        setProgress(null);
+      }, 1000);
+    });
+
+    // socket disconnect on component unmount if exists
+    return () => {
+      if (socket) socket.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    console.log(fileInput);
+  }, [fileInput]);
+
   return (
     <>
       <Block1>
         <Block2 onSubmit={onSubmitHandler}>
+          <Container>
+            <Image
+              src='/footer_logo.png'
+              alt='footer_logo'
+              width={500}
+              height={50}
+              style={{
+                objectFit: 'contain',
+                filter: 'invert(1)',
+              }}
+            />
+          </Container>
           <Container>
             <Text>Model</Text>
             <ModelSelector>
@@ -220,14 +269,28 @@ export default function Home(this: any) {
             </SelectionWrapper>
           </Container>
           <Container>
-            <Text>Upload</Text>
-            <Button onClick={handleButtonClick}>파일 업로드</Button>
-            <input
-              type='file'
-              onClick={handleChange}
-              ref={fileInput}
-              style={{ display: 'none' }}
-            />
+            <Upload className={`${audioFile ? 'active' : ''}`}>
+              <Text>Upload</Text>
+              <Button onClick={handleButtonClick}>파일 업로드</Button>
+              <input
+                type='file'
+                onClick={handleChange}
+                onChange={(e) => {
+                  const element = e.target as HTMLInputElement;
+                  setAudioFile(element.files[0]);
+                }}
+                ref={fileInput}
+                style={{ display: 'none' }}
+                multiple
+              />
+            </Upload>
+            {audioFile ? (
+              <FileList>
+                <File>{audioFile.name}</File>
+              </FileList>
+            ) : (
+              ''
+            )}
           </Container>
           <Container>
             <ButtonWrapper>
@@ -262,7 +325,7 @@ export default function Home(this: any) {
 const Block1 = styled.div`
   justify-content: center;
   display: flex;
-  padding: 15px 12px;
+  padding: 300px 12px;
   gap: 15px;
 `;
 
@@ -398,4 +461,29 @@ const Download = styled.div`
   & > div:has(+ a) {
     display: none;
   }
+`;
+
+const Upload = styled.div`
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  &.active {
+    display: none;
+  }
+`;
+
+const FileList = styled.div`
+  display: flex;
+  padding: 15px;
+  gap: 5px;
+  height: 60px;
+  border: 1px solid #cfcfcf;
+  border-radius: 10px;
+  overflow-y: auto;
+`;
+
+const File = styled.div`
+  font-size: 12px;
+  font-weight: 600;
 `;
