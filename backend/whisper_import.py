@@ -5,6 +5,7 @@
 #%%writefile app.py
 
 import asyncio
+import eventlet
 from flask_cors import CORS
 from flask_socketio import SocketIO
 from flask import Flask, jsonify, request, send_file
@@ -14,7 +15,7 @@ import tqdm
 import threading
 from typing import Union
 
-import os
+import os, glob
 import whisper
 import zipfile
 from moviepy.editor import VideoFileClip
@@ -22,18 +23,10 @@ import numpy as np
 from whisper.utils import get_writer
 from pathlib import Path
 
-
 app = Flask(__name__)
 sio = SocketIO(app, cors_allowed_origins='*')
 CORS(app)
 
-
-@sio.on('uploaded')
-def handle_message(data):
-    print(request.data)
-    print(request)
-    print(request.form)
-    print(request.get_data)
 
 class ProgressListener:
     def on_progress(self, current: Union[int, float], total: Union[int, float]):
@@ -109,73 +102,68 @@ def create_progress_listener_handle(progress_listener: ProgressListener):
     return ProgressListenerHandle(progress_listener)
 
 
-def asdf():
-    sio.send("asds")
-    print("하하")
-
 class PrintingProgressListener:
     def on_progress(self, current: Union[int, float], total: Union[int, float]):
         print(f"Progress: {current}/{total}")
-        asdf()
-      #socket
+        sio.send({'current':current, 'total':total})
+        sio.sleep(0)
     def on_finished(self):
       print("Finished")
 
-@app.route('/', methods=['POST'])
-def GETB():
+@app.route('/uploaded', methods=['POST'])
+def GETC():
     params = request.form
     content = request.files['uploadFile']
-    content.save('video.mp4')
-    video = VideoFileClip('video.mp4')
-    audio = video.audio
-    audio.write_audiofile('audio.wav')
-    os.remove('video.mp4')
+    content.save('files/' + params['fileName'])
+    file_list = glob.glob('files/*')
+    print(file_list)
+    return jsonify({'test': 'ok'})
 
-    model = whisper.load_model(params['selectedModel'])
-    fromlanguage = params['selectedFromLanguage']
-    tolanguage = params['selectedToLanguage']
+@sio.on('uploaded')
+def handle_message(data):
+    print(data)
+    file_list = glob.glob('files/*')
+    for file in file_list:
+        video = VideoFileClip(file)
+        audio = video.audio
+        audio.write_audiofile('files/audio.wav')
+        os.remove(file)
 
-    options = dict(language=fromlanguage, word_timestamps=True, verbose=False)
+        model = whisper.load_model(data['selectedModel'])
+        fromlanguage = data['selectedFromLanguage']
+        tolanguage = data['selectedToLanguage']
 
-    transcribe_options = dict(task="transcribe", **options)
-    translate_options = dict(task="translate", **options)
+        options = dict(language=fromlanguage, word_timestamps=True, verbose=False)
 
-    if fromlanguage != 'en' and tolanguage == 'en':
-      with create_progress_listener_handle(PrintingProgressListener()) as listener:
-        result = model.transcribe('audio.wav', **translate_options)
-    elif fromlanguage != 'en' and tolanguage != 'en' and fromlanguage != tolanguage:
-      with create_progress_listener_handle(PrintingProgressListener()) as listener:
-        result = model.transcribe('audio.wav', **translate_options)
-    else:
-      with create_progress_listener_handle(PrintingProgressListener()) as listener:
-        result = model.transcribe('audio.wav', **transcribe_options)
-    
-    # file_path = Path('audio.wav')
-    # txt_path = file_path.with_suffix(".txt")
-    # with open(txt_path, "w", encoding="utf-8") as txt:
-    #     txt.write(result["text"])
+        transcribe_options = dict(task="transcribe", **options)
+        translate_options = dict(task="translate", **options)
+            
+        if fromlanguage != 'en' and tolanguage == 'en':
+            with create_progress_listener_handle(PrintingProgressListener()) as listener:
+                result = model.transcribe('files/audio.wav', **translate_options)
+        elif fromlanguage != 'en' and tolanguage != 'en' and fromlanguage != tolanguage:
+            with create_progress_listener_handle(PrintingProgressListener()) as listener:
+                result = model.transcribe('files/audio.wav', **translate_options)
+        else:
+            with create_progress_listener_handle(PrintingProgressListener()) as listener:
+                result = model.transcribe('files/audio.wav', **transcribe_options)
+        
+        os.remove('files/audio.wav')
+        options = {
+                    'max_line_width': None,
+                    'max_line_count': None,
+                    'highlight_words': False
+        }
 
-    # output_directory = file_path.parent
-    # srt_writer = get_writer("srt", output_directory)
-    # srt_writer(result, str(file_path.stem))
+        output_directory = Path(f'public/output/{file.split("/")[1]}')
+        srt_writer = get_writer("srt", 'public/output')
+        srt_writer(result, output_directory, options)
+        txt_writer = get_writer("txt", 'public/output')
+        txt_writer(result, output_directory, options)
 
-    # vtt_writer = get_writer("vtt", output_directory)
-    # vtt_writer(result, str(file_path.stem))
-
-    # tsv_writer = get_writer("tsv", output_directory)
-    # tsv_writer(result, str(file_path.stem))
-
-    # file_paths = ['/content/file.srt','/content/file.tsv','/content/file.txt','/content/file.vtt']
-
-    # zip_filename = 'downloaded_files.zip'
-    # with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
-    #     for file_path in file_paths:
-    #         zipf.write(file_path, os.path.basename(file_path))
-
-    # return send_file('/content/file.srt', as_attachment=True)
-
-    os.remove('audio.wav')
-    return jsonify({ "test": 123 })
+    output_paths = glob.glob('public/output/*')
+    sio.emit('downloads', output_paths)
+    return
 
 sio.run(app, port=5050, debug=True)
 # %%

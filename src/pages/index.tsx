@@ -19,6 +19,8 @@ import React from 'react';
 import Axios from 'axios';
 import Image from 'next/image';
 import { Socket, io } from 'socket.io-client';
+import { X509Certificate } from 'crypto';
+import { ProgressBar } from '@tremor/react';
 
 const models = [
   { name: 'tiny' },
@@ -41,7 +43,14 @@ const languages: Language[] = [
 ];
 
 export default function Home(this: any) {
-  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [fileStatus, setFileStatus] = useState<
+    {
+      isOK: boolean;
+      fileName: string;
+      uploadFile: File;
+    }[]
+  >([]);
+  const [audioFile, setAudioFile] = useState<FileList | null>(null);
   const [selectedModel, setSelectedModel] = useState<number | null>(null);
   const [selectedFromLanguage, setSelectedFromLanguage] = useState<Language>(
     languages[1]
@@ -92,7 +101,6 @@ export default function Home(this: any) {
     setSelectedFromLanguage(languages[1]);
     setSelectedToLanguage(languages[1]);
   };
-  const handleSubmitClick = (e: any) => {};
 
   const onSubmitHandler = async (e: FormEvent) => {
     e.preventDefault();
@@ -100,45 +108,16 @@ export default function Home(this: any) {
       alert('모델을 선택해주세요.');
       return;
     }
-
     const body = {
       selectedFromLanguage: selectedFromLanguage.code,
       selectedToLanguage: selectedToLanguage.code,
       selectedModel: models[selectedModel].name,
-      uploadFile: audioFile,
     };
 
-    const formData = new FormData();
-    formData.append('test', '12');
-    Object.keys(body).forEach((key) =>
-      formData.append(
-        key,
-        !!body[key] || String(body[key]) === 'false' ? body[key] : 'None'
-      )
-    );
+    socket.emit('uploaded', body);
 
-    console.log(formData);
-    socket.emit('uploaded', formData);
-
-    const { data } = await Axios.post('http://localhost:5050', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      responseType: 'blob',
-    });
-
-    // const href = URL.createObjectURL(data);
-
-    // const link = document.createElement('a');
-    // link.href = href;
-    // link.setAttribute('download', 'file.zip');
-    // link.classList.add('download_link');
-    // link.textContent = 'files.zip';
-
-    // document.querySelector('#download')?.appendChild(link);
-
-    // console.log('REQUEST BODY DATA IS', body);
-    // console.log('RESPONSE DATA IS', data);
+    console.log('REQUEST BODY DATA IS', body);
+    // console.log('REQUEST DATA IS', data);
   };
 
   const task = useMemo(() => {
@@ -146,6 +125,10 @@ export default function Home(this: any) {
     if (selectedFromLanguage !== selectedToLanguage) return 'translate';
   }, [selectedToLanguage, selectedFromLanguage]);
 
+  const [progressValue, setProgressValue] = useState({
+    current: 0,
+    total: 0,
+  });
   useEffect(() => {
     const socket = io('http://localhost:5050', {
       transports: ['websocket'],
@@ -156,9 +139,21 @@ export default function Home(this: any) {
       setSocket(socket);
     });
 
-    // update chat on new message dispatched
-    socket.on('message', (message: any) => {
-      setProgress(message);
+    socket.on('message', (message: { current: number; total: number }) => {
+      setProgressValue(message);
+    });
+
+    socket.on('downloads', (message: string[]) => {
+      message.map((x) => {
+        const name = x.replace('public', '');
+        const downloadElement = document.createElement('a');
+        downloadElement.download = name;
+        downloadElement.href = name;
+        downloadElement.textContent = name;
+        downloadElement.classList.add('download_item');
+
+        document.getElementById('download').append(downloadElement);
+      });
       console.log(message);
     });
 
@@ -269,37 +264,108 @@ export default function Home(this: any) {
             </SelectionWrapper>
           </Container>
           <Container>
-            <Upload className={`${audioFile ? 'active' : ''}`}>
+            <Upload className={`${audioFile?.length > 0 ? 'active' : ''}`}>
               <Text>Upload</Text>
               <Button onClick={handleButtonClick}>파일 업로드</Button>
               <input
                 type='file'
                 onClick={handleChange}
-                onChange={(e) => {
+                onChange={async (e) => {
                   const element = e.target as HTMLInputElement;
-                  setAudioFile(element.files[0]);
+
+                  const fs = Array.from(element.files).map((x, i) => ({
+                    isOK: false,
+                    fileName: `${i}_${x.name}`,
+                    uploadFile: x,
+                  }));
+
+                  await Promise.all([
+                    fs.map(async (f) => {
+                      const formData = new FormData();
+                      Object.keys(f).forEach((key) =>
+                        formData.append(key, f[key])
+                      );
+
+                      const { status } = await Axios.post(
+                        'http://localhost:5050/uploaded',
+                        formData,
+                        {
+                          headers: {
+                            'Content-Type': 'multipart/form-data',
+                          },
+                          responseType: 'blob',
+                        }
+                      );
+
+                      if (status === 200) {
+                        setFileStatus((prevData) => {
+                          const sData = prevData.map((x) => {
+                            if (x.uploadFile === f.uploadFile) {
+                              x.isOK = true;
+                              return x;
+                            } else {
+                              return x;
+                            }
+                          });
+
+                          return sData;
+                        });
+                      }
+                    }),
+                  ]);
+
+                  setFileStatus(fs);
                 }}
                 ref={fileInput}
                 style={{ display: 'none' }}
                 multiple
               />
             </Upload>
-            {audioFile ? (
+            {fileStatus?.length > 0 && (
               <FileList>
-                <File>{audioFile.name}</File>
+                {Array.from(fileStatus).map((file, i) => (
+                  <File key={i}>
+                    {i + 1}. {file.uploadFile.name}
+                    <Check>{` ${file.isOK ? 'OK' : 'NOT'}`}</Check>
+                    <svg
+                      xmlns='http://www.w3.org/2000/svg'
+                      fill='#000000'
+                      height='7px'
+                      width='7px'
+                      version='1.1'
+                      id='Capa_1'
+                      viewBox='0 0 460.775 460.775'
+                      style={{
+                        cursor: 'pointer',
+                      }}
+                      onClick={() => {
+                        let list = new DataTransfer();
+
+                        setFileStatus((prevData) =>
+                          prevData.filter(
+                            (x) => x.uploadFile != file.uploadFile
+                          )
+                        );
+                      }}
+                    >
+                      <path d='M285.08,230.397L456.218,59.27c6.076-6.077,6.076-15.911,0-21.986L423.511,4.565c-2.913-2.911-6.866-4.55-10.992-4.55  c-4.127,0-8.08,1.639-10.993,4.55l-171.138,171.14L59.25,4.565c-2.913-2.911-6.866-4.55-10.993-4.55  c-4.126,0-8.08,1.639-10.992,4.55L4.558,37.284c-6.077,6.075-6.077,15.909,0,21.986l171.138,171.128L4.575,401.505  c-6.074,6.077-6.074,15.911,0,21.986l32.709,32.719c2.911,2.911,6.865,4.55,10.992,4.55c4.127,0,8.08-1.639,10.994-4.55  l171.117-171.12l171.118,171.12c2.913,2.911,6.866,4.55,10.993,4.55c4.128,0,8.081-1.639,10.992-4.55l32.709-32.719  c6.074-6.075,6.074-15.909,0-21.986L285.08,230.397z' />
+                    </svg>
+                  </File>
+                ))}
               </FileList>
-            ) : (
-              ''
             )}
           </Container>
+          <progress
+            value={progressValue.current}
+            max={progressValue.total}
+            style={{ transition: 'width 5s ease' }}
+          />
           <Container>
             <ButtonWrapper>
               <Submit onClick={handleClearClick} type='reset'>
                 Clear
               </Submit>
-              <Submit onClick={handleSubmitClick} type='submit'>
-                Submit
-              </Submit>
+              <Submit type='submit'>Submit</Submit>
             </ButtonWrapper>
           </Container>
         </Block2>
@@ -455,8 +521,16 @@ const Download = styled.div`
   width: 200px;
   height: 100px;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
+
+  & > a.download_item {
+    width: 50px;
+    text-decoration: none;
+    color: gray;
+    font-size: 10px;
+  }
 
   & > div:has(+ a) {
     display: none;
@@ -475,15 +549,23 @@ const Upload = styled.div`
 
 const FileList = styled.div`
   display: flex;
-  padding: 15px;
-  gap: 5px;
-  height: 60px;
+  flex-direction: column;
+  padding: 5px;
   border: 1px solid #cfcfcf;
-  border-radius: 10px;
-  overflow-y: auto;
+  border-radius: 4px;
 `;
 
 const File = styled.div`
+  align-items: center;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
+  display: flex;
+  gap: 5px;
+  padding: 2px;
+`;
+
+const Check = styled.div`
+  color: blue;
+  font-weight: 200;
+  margin-left: 25px;
 `;
