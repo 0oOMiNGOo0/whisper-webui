@@ -18,6 +18,7 @@ from typing import Union
 import os, glob
 import whisper
 import zipfile
+from translate import Translator
 from moviepy.editor import VideoFileClip
 import numpy as np
 from whisper.utils import get_writer
@@ -132,15 +133,31 @@ def handle_message(data):
         model = whisper.load_model(data['selectedModel'])
         fromlanguage = data['selectedFromLanguage']
         tolanguage = data['selectedToLanguage']
+        
 
         options = dict(language=fromlanguage, word_timestamps=True, verbose=False)
 
         transcribe_options = dict(task="transcribe", **options)
         translate_options = dict(task="translate", **options)
+        translator= Translator(to_lang=tolanguage)
+        options = {
+                    'max_line_width': None,
+                    'max_line_count': None,
+                    'highlight_words': False
+        }
+
             
         if fromlanguage != 'en' and tolanguage == 'en':
             with create_progress_listener_handle(PrintingProgressListener()) as listener:
                 result = model.transcribe('files/audio.wav', **translate_options)
+                output_directory = Path(f'public/output/{file.split("/")[1]}')
+                srt_writer = get_writer("srt", 'public/output')
+                srt_writer(result, output_directory, options)
+                txt_writer = get_writer("txt", 'public/output')
+                txt_writer(result, output_directory, options)
+                translation = translator.translate("public/output/0_영상1(뉴스) 복사본.srt")
+                print(translation)
+        
         elif fromlanguage != 'en' and tolanguage != 'en' and fromlanguage != tolanguage:
             with create_progress_listener_handle(PrintingProgressListener()) as listener:
                 result = model.transcribe('files/audio.wav', **translate_options)
@@ -149,12 +166,6 @@ def handle_message(data):
                 result = model.transcribe('files/audio.wav', **transcribe_options)
         
         os.remove('files/audio.wav')
-        options = {
-                    'max_line_width': None,
-                    'max_line_count': None,
-                    'highlight_words': False
-        }
-
         output_directory = Path(f'public/output/{file.split("/")[1]}')
         srt_writer = get_writer("srt", 'public/output')
         srt_writer(result, output_directory, options)
