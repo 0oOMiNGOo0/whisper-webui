@@ -1,7 +1,3 @@
-# pip install -U openai-whisper
-# pip install Flask eventlet
-# pip install flask_cors
-
 #%%writefile app.py
 
 import asyncio
@@ -17,12 +13,11 @@ from typing import Union
 
 import os, glob
 import whisper
-import zipfile
-from translate import Translator
-from moviepy.editor import VideoFileClip
 import numpy as np
-from whisper.utils import get_writer
 from pathlib import Path
+from moviepy.editor import VideoFileClip
+from deep_translator import GoogleTranslator
+from whisper.utils import get_writer
 
 app = Flask(__name__)
 sio = SocketIO(app, cors_allowed_origins='*')
@@ -106,10 +101,12 @@ def create_progress_listener_handle(progress_listener: ProgressListener):
 class PrintingProgressListener:
     def on_progress(self, current: Union[int, float], total: Union[int, float]):
         print(f"Progress: {current}/{total}")
-        sio.send({'current':current, 'total':total})
+        sio.send({'current':round((current/total)*100, 2), 'total':100})
         sio.sleep(0)
     def on_finished(self):
       print("Finished")
+      sio.send({'current':100, 'total':100})
+      sio.sleep(0)
 
 @app.route('/uploaded', methods=['POST'])
 def GETC():
@@ -134,12 +131,9 @@ def handle_message(data):
         fromlanguage = data['selectedFromLanguage']
         tolanguage = data['selectedToLanguage']
         
-
         options = dict(language=fromlanguage, word_timestamps=True, verbose=False)
-
         transcribe_options = dict(task="transcribe", **options)
         translate_options = dict(task="translate", **options)
-        translator= Translator(to_lang=tolanguage)
         options = {
                     'max_line_width': None,
                     'max_line_count': None,
@@ -147,25 +141,32 @@ def handle_message(data):
         }
 
             
-        if fromlanguage != 'en' and tolanguage == 'en':
+        if fromlanguage != 'en' and tolanguage != 'en' and fromlanguage != tolanguage:
             with create_progress_listener_handle(PrintingProgressListener()) as listener:
-                result = model.transcribe('files/audio.wav', **translate_options)
-                output_directory = Path(f'public/output/{file.split("/")[1]}')
-                srt_writer = get_writer("srt", 'public/output')
-                srt_writer(result, output_directory, options)
-                txt_writer = get_writer("txt", 'public/output')
-                txt_writer(result, output_directory, options)
-                translation = translator.translate("public/output/0_영상1(뉴스) 복사본.srt")
-                print(translation)
-        
-        elif fromlanguage != 'en' and tolanguage != 'en' and fromlanguage != tolanguage:
+                result = model.transcribe('files/audio.wav', **transcribe_options)
+            progressbar = tqdm.tqdm(enumerate(result['segments']), total=len(result['segments']))
+            for i, seg in progressbar:
+                sio.send({'current':progressbar.n, 'total':len(result['segments'])})
+                sio.sleep(0)
+                text = seg['text']
+                words = seg['words']
+                result['segments'][i]['text'] =  GoogleTranslator(source=fromlanguage, target=tolanguage).translate(text)
+                for j, word in enumerate(words):
+                    if word['word'] != []:
+                        result['segments'][i]['words'][j]['word'] =  GoogleTranslator(source=fromlanguage, target=tolanguage).translate(word['word'])
+            print('translate finished')
+            sio.send({'current':len(result['segments']), 'total':len(result['segments'])})
+            sio.sleep(0)
+                   
+        elif fromlanguage != 'en' and tolanguage == 'en':
             with create_progress_listener_handle(PrintingProgressListener()) as listener:
                 result = model.transcribe('files/audio.wav', **translate_options)
         else:
             with create_progress_listener_handle(PrintingProgressListener()) as listener:
                 result = model.transcribe('files/audio.wav', **transcribe_options)
         
-        os.remove('files/audio.wav')
+        if os.path.exists('files/audio.wav'):
+            os.remove('files/audio.wav')
         output_directory = Path(f'public/output/{file.split("/")[1]}')
         srt_writer = get_writer("srt", 'public/output')
         srt_writer(result, output_directory, options)
