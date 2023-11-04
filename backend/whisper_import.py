@@ -101,11 +101,11 @@ def create_progress_listener_handle(progress_listener: ProgressListener):
 class PrintingProgressListener:
     def on_progress(self, current: Union[int, float], total: Union[int, float]):
         print(f"Progress: {current}/{total}")
-        sio.send({'current':round((current/total)*100, 2), 'total':100})
+        sio.send({'key':0, 'current':round((current/total)*100, 2), 'total':100})
         sio.sleep(0)
     def on_finished(self):
       print("Finished")
-      sio.send({'current':100, 'total':100})
+      sio.send({'key':0, 'current':100, 'total':100})
       sio.sleep(0)
 
 @app.route('/uploaded', methods=['POST'])
@@ -146,7 +146,10 @@ def handle_message(data):
                 result = model.transcribe('files/audio.wav', **transcribe_options)
             progressbar = tqdm.tqdm(enumerate(result['segments']), total=len(result['segments']))
             for i, seg in progressbar:
-                sio.send({'current':progressbar.n, 'total':len(result['segments'])})
+                sio.send({
+                    'key': 1,
+                    'current':progressbar.n,
+                    'total':len(result['segments'])})
                 sio.sleep(0)
                 text = seg['text']
                 words = seg['words']
@@ -155,7 +158,7 @@ def handle_message(data):
                     if word['word'] != []:
                         result['segments'][i]['words'][j]['word'] =  GoogleTranslator(source=fromlanguage, target=tolanguage).translate(word['word'])
             print('translate finished')
-            sio.send({'current':len(result['segments']), 'total':len(result['segments'])})
+            sio.send({'key': 1, 'current':len(result['segments']), 'total':len(result['segments'])})
             sio.sleep(0)
                    
         elif fromlanguage != 'en' and tolanguage == 'en':
