@@ -112,6 +112,8 @@ class PrintingProgressListener:
 def GETC():
     params = request.form
     content = request.files['uploadFile']
+    if not os.path.exists('files'):
+        os.makedir('files')
     content.save('files/' + params['fileName'])
     file_list = glob.glob('files/*')
     print(file_list)
