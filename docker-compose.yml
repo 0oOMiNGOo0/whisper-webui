@@ -1,0 +1,12 @@
+version: '1'
+services:
+  next:
+    build:
+      dockerfile: ${PWD}/next.Dockerfile
+    ports:
+      - 3000:3000
+  flaskr:
+    build:
+      dockerfile: ${PWD}/flask.Dockerfile
+    ports:
+      - 5050:5050

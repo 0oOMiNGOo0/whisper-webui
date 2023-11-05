@@ -34,8 +34,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-venv*
 
 # files
-files
+backend/venv
+backend/files
 public/output

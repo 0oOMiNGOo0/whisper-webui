@@ -117,6 +117,11 @@ def GETC():
     print(file_list)
     return jsonify({'test': 'ok'})
 
+@app.route('/remove', methods=['POST'])
+def AS():
+    os.remove('files/' + request.json['fileName'])
+    return jsonify({'test': 'ok'})
+
 @sio.on('uploaded')
 def handle_message(data):
     print(data)
@@ -148,8 +153,8 @@ def handle_message(data):
             for i, seg in progressbar:
                 sio.send({
                     'key': 1,
-                    'current':progressbar.n,
-                    'total':len(result['segments'])})
+                    'current':round(progressbar.n/len(result['segments'])*100, 2),
+                    'total': 100})
                 sio.sleep(0)
                 text = seg['text']
                 words = seg['words']
@@ -158,7 +163,7 @@ def handle_message(data):
                     if word['word'] != []:
                         result['segments'][i]['words'][j]['word'] =  GoogleTranslator(source=fromlanguage, target=tolanguage).translate(word['word'])
             print('translate finished')
-            sio.send({'key': 1, 'current':len(result['segments']), 'total':len(result['segments'])})
+            sio.send({'key': 1, 'current':100, 'total':100})
             sio.sleep(0)
                    
         elif fromlanguage != 'en' and tolanguage == 'en':
@@ -180,5 +185,5 @@ def handle_message(data):
     sio.emit('downloads', output_paths)
     return
 
-sio.run(app, port=5050, debug=True)
+sio.run(app, host='0.0.0.0', port=5050, debug=True)
 # %%
