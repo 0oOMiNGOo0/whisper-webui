@@ -122,16 +122,7 @@ export default function Home() {
     });
 
     socket.on('downloads', (message: string[]) => {
-      // message.map((x) => {
-      //   const name = x.replace('public', '');
-      //   const downloadElement = document.createElement('a');
-      //   downloadElement.download = name;
-      //   downloadElement.href = name;
-      //   downloadElement.textContent = name;
-      //   downloadElement.classList.add('download_item');
-
-      //   document.getElementById('download').append(downloadElement);
-      // });
+      console.log(message);
       setOutputFilePaths(message);
     });
 

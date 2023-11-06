@@ -112,26 +112,26 @@ class PrintingProgressListener:
 def GETC():
     params = request.form
     content = request.files['uploadFile']
-    if not os.path.exists('files'):
-        os.makedir('files')
-    content.save('files/' + params['fileName'])
-    file_list = glob.glob('files/*')
+    if not os.path.exists('backend/files'):
+        os.makedirs('backend/files')
+    content.save('backend/files/' + params['fileName'])
+    file_list = glob.glob('backend/files/*')
     print(file_list)
     return jsonify({'test': 'ok'})
 
 @app.route('/remove', methods=['POST'])
 def AS():
-    os.remove('files/' + request.json['fileName'])
+    os.remove('backend/files/' + request.json['fileName'])
     return jsonify({'test': 'ok'})
 
 @sio.on('uploaded')
 def handle_message(data):
     print(data)
-    file_list = glob.glob('files/*')
+    file_list = glob.glob('backend/files/*')
     for file in file_list:
         video = VideoFileClip(file)
         audio = video.audio
-        audio.write_audiofile('files/audio.wav')
+        audio.write_audiofile('backend/files/audio.wav')
         os.remove(file)
 
         model = whisper.load_model(data['selectedModel'])
@@ -150,7 +150,7 @@ def handle_message(data):
             
         if fromlanguage != 'en' and tolanguage != 'en' and fromlanguage != tolanguage:
             with create_progress_listener_handle(PrintingProgressListener()) as listener:
-                result = model.transcribe('files/audio.wav', **transcribe_options)
+                result = model.transcribe('backend/files/audio.wav', **transcribe_options)
             progressbar = tqdm.tqdm(enumerate(result['segments']), total=len(result['segments']))
             for i, seg in progressbar:
                 sio.send({
@@ -170,13 +170,15 @@ def handle_message(data):
                    
         elif fromlanguage != 'en' and tolanguage == 'en':
             with create_progress_listener_handle(PrintingProgressListener()) as listener:
-                result = model.transcribe('files/audio.wav', **translate_options)
+                result = model.transcribe('backend/files/audio.wav', **translate_options)
         else:
             with create_progress_listener_handle(PrintingProgressListener()) as listener:
-                result = model.transcribe('files/audio.wav', **transcribe_options)
+                result = model.transcribe('backend/files/audio.wav', **transcribe_options)
         
-        if os.path.exists('files/audio.wav'):
-            os.remove('files/audio.wav')
+        if os.path.exists('backend/files/audio.wav'):
+            os.remove('backend/files/audio.wav')
+        if not os.path.exists('public/output'):
+            os.makedirs('public/output')
         output_directory = Path(f'public/output/{file.split("/")[1]}')
         srt_writer = get_writer("srt", 'public/output')
         srt_writer(result, output_directory, options)
