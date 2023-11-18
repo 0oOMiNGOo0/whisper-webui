@@ -179,7 +179,7 @@ def handle_message(data):
             os.remove('backend/files/audio.wav')
         if not os.path.exists('public/output'):
             os.makedirs('public/output')
-        output_directory = Path(f'public/output/{file.split("/")[1]}')
+        output_directory = Path(f'public/output/{file.split("/")[2].split(".")[0]}')
         srt_writer = get_writer("srt", 'public/output')
         srt_writer(result, output_directory, options)
         txt_writer = get_writer("txt", 'public/output')
