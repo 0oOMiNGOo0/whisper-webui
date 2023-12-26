@@ -1,12 +1,28 @@
-version: '1'
+version: "2.0"
+volumes:
+  whisper_static_volume:
+    name: whisper_static_volume
 services:
   next:
     build:
-      dockerfile: ${PWD}/next.Dockerfile
+      dockerfile: ${PWD}/frontend/.Dockerfile
+    restart: always
     ports:
       - 3000:3000
-  flaskr:
+  flask:
     build:
-      dockerfile: ${PWD}/flask.Dockerfile
+      dockerfile: ${PWD}/backend/.Dockerfile
+    volumes:
+      - whisper_static_volume:/app/backend/output
+    restart: always
     ports:
       - 5050:5050
+  nginx_proxy_server:
+    build:
+      dockerfile: ${PWD}/nginx.Dockerfile
+    volumes:
+      - whisper_static_volume:/app/static
+    restart: always
+    ports:
+      - 80:80
+      - 8080:8080
