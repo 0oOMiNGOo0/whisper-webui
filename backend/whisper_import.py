@@ -177,15 +177,15 @@ def handle_message(data):
         
         if os.path.exists('backend/files/audio.wav'):
             os.remove('backend/files/audio.wav')
-        if not os.path.exists('public/output'):
-            os.makedirs('public/output')
-        output_directory = Path(f'public/output/{file.split("/")[2].split(".")[0]}')
-        srt_writer = get_writer("srt", 'public/output')
+        if not os.path.exists('backend/output'):
+            os.makedirs('backend/output')
+        output_directory = Path(f'backend/output/{file.split("/")[2].split(".")[0]}')
+        srt_writer = get_writer("srt", 'backend/output')
         srt_writer(result, output_directory, options)
-        txt_writer = get_writer("txt", 'public/output')
+        txt_writer = get_writer("txt", 'backend/output')
         txt_writer(result, output_directory, options)
 
-    output_paths = glob.glob('public/output/*')
+    output_paths = glob.glob('backend/output/*')
     sio.emit('downloads', output_paths)
     return
 

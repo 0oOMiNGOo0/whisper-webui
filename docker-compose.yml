@@ -5,8 +5,16 @@ services:
       dockerfile: ${PWD}/next.Dockerfile
     ports:
       - 3000:3000
+    volumes:
+      - files:/app/public/output
+
   flaskr:
     build:
       dockerfile: ${PWD}/flask.Dockerfile
     ports:
       - 5050:5050
+    volumes:
+      - files:/app/backend/output
+
+volumes:
+  files:

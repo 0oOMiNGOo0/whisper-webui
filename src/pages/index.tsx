@@ -47,12 +47,6 @@ export default function Home() {
     total: number;
   } | null>(null);
 
-  // useEffect(() => {
-  //   setTimeout(() => {
-  //     setProgress(Math.ceil(Math.random() * 100));
-  //   }, 0);
-  // }, []);
-
   const onFileUploadHandler = async (e: ChangeEvent<HTMLInputElement>) => {
     const { files } = e.currentTarget;
 
@@ -95,9 +89,6 @@ export default function Home() {
           }
         }),
       ]);
-      // setUploadedFile(
-
-      // );
     }
   };
 
@@ -118,7 +109,6 @@ export default function Home() {
         total: message.total,
         current: message.current,
       });
-      // setProgressValue(message);
     });
 
     socket.on('downloads', (message: string[]) => {
@@ -156,20 +146,6 @@ export default function Home() {
   useEffect(() => {
     console.log(options);
   }, [options]);
-
-  // useEffect(() => {
-  //   const runF = async () => {
-  //     if (!!uploadedFile) {
-
-  //     }
-  //   };
-
-  //   runF();
-  // }, [uploadedFile]);
-  // const a = {
-  //   directory: '',
-  //   webkitdirectory: '',
-  // };
 
   return (
     <main className='flex p-4 gap-4 max-w-7xl w-full m-auto'>
@@ -343,7 +319,7 @@ export default function Home() {
             src='/logo.png'
             width={200}
             height={50}
-            className='absolute right-0 left-0 top-0 bottom-0 m-auto invert opacity-25'
+            className='absxolute right-0 left-0 top-0 bottom-0 m-auto invert opacity-25'
             alt='logo'
           />
         )}
@@ -353,7 +329,7 @@ export default function Home() {
         <div className='w-full max-w-[250px] bg-gray-50 rounded relative p-4'>
           <List>
             {outputFilePaths.map((path, i) => (
-              <a href={path.replaceAll('public', '')} download={path} key={i}>
+              <a href={path.replaceAll('backend/', '')} download={path} key={i}>
                 <ListItem className='flex gap-2 justify-start t text-black text-xs py-1.5 underline'>
                   <FolderOpenIcon color='black' className='min-w-[1rem] w-4' />
                   <span className='whitespace-pre overflow-hidden text-ellipsis w-[80%]'>
