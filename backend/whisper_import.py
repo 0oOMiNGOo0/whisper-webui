@@ -11,7 +11,7 @@ import tqdm
 import threading
 from typing import Union
 
-import os, glob
+import os, glob, shutil
 import whisper
 import numpy as np
 from pathlib import Path
@@ -112,6 +112,8 @@ class PrintingProgressListener:
 def GETC():
     params = request.form
     content = request.files['uploadFile']
+    if not os.path.exists('files'):
+        os.makedirs('files')
     content.save('files/' + params['fileName'])
     file_list = glob.glob('files/*')
     print(file_list)
@@ -175,15 +177,26 @@ def handle_message(data):
         
         if os.path.exists('files/audio.wav'):
             os.remove('files/audio.wav')
-        output_directory = Path(f'public/output/{file.split("/")[1]}')
-        srt_writer = get_writer("srt", 'public/output')
+        if not os.path.exists('output'):
+            os.makedirs('output')
+        output_directory = Path(f'output/{file.split("/")[1].split(".")[0]}')
+        srt_writer = get_writer("srt", 'output')
         srt_writer(result, output_directory, options)
-        txt_writer = get_writer("txt", 'public/output')
+        txt_writer = get_writer("txt", 'output')
         txt_writer(result, output_directory, options)
 
-    output_paths = glob.glob('public/output/*')
+    output_paths = glob.glob('output/*')
     sio.emit('downloads', output_paths)
     return
+
+@sio.on('download')
+def download(filename):
+    return send_file(f'output/{filename}', f'{filename}')
+
+@sio.on('downloads')
+def downloadall():
+    shutil.make_archive('files', 'zip', './output')
+    return send_file('files.zip', 'files.zip')
 
 sio.run(app, host='0.0.0.0', port=5050, debug=True)
 # %%
