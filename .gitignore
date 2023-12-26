@@ -38,4 +38,4 @@ next-env.d.ts
 # files
 backend/venv
 backend/files
-public/output
+output

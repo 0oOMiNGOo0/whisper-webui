@@ -47,11 +47,6 @@ export default function Home() {
     total: number;
   } | null>(null);
 
-  // useEffect(() => {
-  //   setTimeout(() => {
-  //     setProgress(Math.ceil(Math.random() * 100));
-  //   }, 0);
-  // }, []);
 
   const onFileUploadHandler = async (e: ChangeEvent<HTMLInputElement>) => {
     const { files } = e.currentTarget;
@@ -153,23 +148,17 @@ export default function Home() {
     }
   };
 
+  const handleFileClick = (fileName: string) => {
+    console.log('click')
+    if (socket) {
+      socket.emit('download', fileName);
+    }
+  };
+
   useEffect(() => {
     console.log(options);
   }, [options]);
 
-  // useEffect(() => {
-  //   const runF = async () => {
-  //     if (!!uploadedFile) {
-
-  //     }
-  //   };
-
-  //   runF();
-  // }, [uploadedFile]);
-  // const a = {
-  //   directory: '',
-  //   webkitdirectory: '',
-  // };
 
   return (
     <main className='flex p-4 gap-4 max-w-7xl w-full m-auto'>
@@ -352,21 +341,22 @@ export default function Home() {
       {outputFilePaths.length > 0 && (
         <div className='w-full max-w-[250px] bg-gray-50 rounded relative p-4'>
           <List>
-            {outputFilePaths.map((path, i) => (
-              <a href={path.replaceAll('public', '')} download={path} key={i}>
-                <ListItem className='flex gap-2 justify-start t text-black text-xs py-1.5 underline'>
-                  <FolderOpenIcon color='black' className='min-w-[1rem] w-4' />
-                  <span className='whitespace-pre overflow-hidden text-ellipsis w-[80%]'>
-                    {path.split('public/output/')[1]}
-                  </span>
-                </ListItem>
-              </a>
+            {outputFilePaths.map((path: string, i: any) => (          
+              <ListItem
+              key={i}
+              className='flex gap-2 justify-start t text-black text-xs py-1.5 underline'
+              onClick={() => handleFileClick(path)}>
+                <FolderOpenIcon color='black' className='min-w-[1rem] w-4' />
+                <span
+                className='whitespace-pre overflow-hidden text-ellipsis w-[80%]' 
+                onClick={() => handleFileClick(path)}>
+                  {path.split('/')[1]}
+                </span>
+              </ListItem>
             ))}
           </List>
         </div>
       )}
-
-      {/* // PROGRESS BAR // */}
     </main>
   );
 }

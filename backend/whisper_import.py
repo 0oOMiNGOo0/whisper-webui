@@ -11,7 +11,7 @@ import tqdm
 import threading
 from typing import Union
 
-import os, glob
+import os, glob, shutil
 import whisper
 import numpy as np
 from pathlib import Path
@@ -112,26 +112,26 @@ class PrintingProgressListener:
 def GETC():
     params = request.form
     content = request.files['uploadFile']
-    if not os.path.exists('backend/files'):
-        os.makedirs('backend/files')
-    content.save('backend/files/' + params['fileName'])
-    file_list = glob.glob('backend/files/*')
+    if not os.path.exists('files'):
+        os.makedirs('files')
+    content.save('files/' + params['fileName'])
+    file_list = glob.glob('files/*')
     print(file_list)
     return jsonify({'test': 'ok'})
 
 @app.route('/remove', methods=['POST'])
 def AS():
-    os.remove('backend/files/' + request.json['fileName'])
+    os.remove('files/' + request.json['fileName'])
     return jsonify({'test': 'ok'})
 
 @sio.on('uploaded')
 def handle_message(data):
     print(data)
-    file_list = glob.glob('backend/files/*')
+    file_list = glob.glob('files/*')
     for file in file_list:
         video = VideoFileClip(file)
         audio = video.audio
-        audio.write_audiofile('backend/files/audio.wav')
+        audio.write_audiofile('files/audio.wav')
         os.remove(file)
 
         model = whisper.load_model(data['selectedModel'])
@@ -150,7 +150,7 @@ def handle_message(data):
             
         if fromlanguage != 'en' and tolanguage != 'en' and fromlanguage != tolanguage:
             with create_progress_listener_handle(PrintingProgressListener()) as listener:
-                result = model.transcribe('backend/files/audio.wav', **transcribe_options)
+                result = model.transcribe('files/audio.wav', **transcribe_options)
             progressbar = tqdm.tqdm(enumerate(result['segments']), total=len(result['segments']))
             for i, seg in progressbar:
                 sio.send({
@@ -170,24 +170,33 @@ def handle_message(data):
                    
         elif fromlanguage != 'en' and tolanguage == 'en':
             with create_progress_listener_handle(PrintingProgressListener()) as listener:
-                result = model.transcribe('backend/files/audio.wav', **translate_options)
+                result = model.transcribe('files/audio.wav', **translate_options)
         else:
             with create_progress_listener_handle(PrintingProgressListener()) as listener:
-                result = model.transcribe('backend/files/audio.wav', **transcribe_options)
+                result = model.transcribe('files/audio.wav', **transcribe_options)
         
-        if os.path.exists('backend/files/audio.wav'):
-            os.remove('backend/files/audio.wav')
-        if not os.path.exists('public/output'):
-            os.makedirs('public/output')
-        output_directory = Path(f'public/output/{file.split("/")[2].split(".")[0]}')
-        srt_writer = get_writer("srt", 'public/output')
+        if os.path.exists('files/audio.wav'):
+            os.remove('files/audio.wav')
+        if not os.path.exists('output'):
+            os.makedirs('output')
+        output_directory = Path(f'output/{file.split("/")[1].split(".")[0]}')
+        srt_writer = get_writer("srt", 'output')
         srt_writer(result, output_directory, options)
-        txt_writer = get_writer("txt", 'public/output')
+        txt_writer = get_writer("txt", 'output')
         txt_writer(result, output_directory, options)
 
-    output_paths = glob.glob('public/output/*')
+    output_paths = glob.glob('output/*')
     sio.emit('downloads', output_paths)
     return
+
+@sio.on('download')
+def download(filename):
+    return send_file(f'output/{filename}', f'{filename}')
+
+@sio.on('downloads')
+def downloadall():
+    shutil.make_archive('files', 'zip', './output')
+    return send_file('files.zip', 'files.zip')
 
 sio.run(app, host='0.0.0.0', port=5050, debug=True)
 # %%
