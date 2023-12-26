@@ -13,27 +13,26 @@
 /frontend/out/
 
 # production
-/frontend//build
+/frontend/build
 
 # misc
 /frontend/.DS_Store
 /frontend/*.pem
 
-/frontend/# debug
+# debug
 /frontend/npm-debug.log*
 /frontend/yarn-debug.log*
 /frontend/yarn-error.log*
 
-/frontend/# local env files
+# local env files
 /frontend/.env*.local
 
-/frontend/# vercel
+# vercel
 /frontend/.vercel
 
-/frontend/# typescript
+# typescript
 /frontend/*.tsbuildinfo
 /frontend/next-env.d.ts
-/frontend/public/output
 
 
 # files

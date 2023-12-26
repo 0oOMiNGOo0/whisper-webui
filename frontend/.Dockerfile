@@ -9,7 +9,6 @@ COPY ./frontend ./
 
 RUN npm install
 RUN npm run build
-ENV PUBLIC_URL=/
 
 EXPOSE 3000 8080
 

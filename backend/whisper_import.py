@@ -189,14 +189,5 @@ def handle_message(data):
     sio.emit('downloads', output_paths)
     return
 
-@sio.on('download')
-def download(filename):
-    return send_file(f'output/{filename}', f'{filename}')
-
-@sio.on('downloads')
-def downloadall():
-    shutil.make_archive('files', 'zip', './output')
-    return send_file('files.zip', 'files.zip')
-
 sio.run(app, host='0.0.0.0', port=5050, debug=True)
 # %%

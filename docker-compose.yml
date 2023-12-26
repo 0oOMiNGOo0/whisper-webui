@@ -1,4 +1,4 @@
-version: "2.0"
+version: '2.0'
 volumes:
   whisper_static_volume:
     name: whisper_static_volume
@@ -13,7 +13,7 @@ services:
     build:
       dockerfile: ${PWD}/backend/.Dockerfile
     volumes:
-      - whisper_static_volume:/app/backend/output
+      - whisper_static_volume:/app/output
     restart: always
     ports:
       - 5050:5050
