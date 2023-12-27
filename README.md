@@ -5,6 +5,7 @@
 
 ## Dependencies
 
+- Linux
 - Python=3.9
 - [Docker](https://www.docker.com/get-started/)
 
